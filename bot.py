@@ -5,19 +5,17 @@ from threading import Thread
 import requests
 import time
 from telegram import Update
-from telegram.ext import Application, MessageHandler, 
-filters, ContextTypes
+from telegram.ext import (Application, MessageHandler, filters)
 from telegram.error import TelegramError
 
 # ----- НАСТРОЙКИ, КОТОРЫЕ НАДО ПОМЕНЯТЬ -----
-TOKEN = "8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ"                # 8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ
-CHANNEL_ID = -1002415978372             # ID -1002415978372
-ADMIN_IDS = [5271825622]                 # ID  5271825622
-# ★★★★★ ЗАМЕНИТЕ ССЫЛКУ ★★★★★
-CHANNEL_LINK = "t.me/ovnsubcheck_bot"
+TOKEN = "8458125587:AAFiXc-ETav0GsvXm2IqQ54g0h_rsvyIpEQ"
+CHANNEL_ID = -1002415978372
+ADMIN_IDS = [5271825622]
+CHANNEL_LINK = "https://t.me/ovnsubcheck_bot"   # ← ЗАМЕНИТЕ ЭТУ ССЫЛКУ
 # -------------------------------------------
 
-# --- Служебная часть для поддержания работоспособности на Render.com ---
+# --- Служебная часть для Render.com ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -25,33 +23,29 @@ def home():
     return "Bot is running!"
 
 def run_flask():
-    # Запускаем Flask-сервер на порту, который предоставит Render
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
 
 def ping_self():
-    # Функция для "самопинга", чтобы сервис не засыпал
     app_url = os.environ.get("RENDER_EXTERNAL_URL")
     if app_url:
         while True:
-            time.sleep(600)  # Пинговать каждые 10 минут
+            time.sleep(600)
             try:
                 requests.get(app_url)
                 print(f"Пингую сам себя: {app_url}")
             except Exception as e:
                 print(f"Ошибка пинга: {e}")
-# --- Конец служебной части ---
 
-async def is_subscribed(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    # ... (эта функция остается без изменений) ...
+# --- Логика бота ---
+async def is_subscribed(user_id: int, context) -> bool:
     try:
         member = await context.bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
         return member.status not in ["left", "kicked"]
     except TelegramError:
         return False
 
-async def delete_warning(context: ContextTypes.DEFAULT_TYPE):
-    # ... (эта функция остается без изменений) ...
+async def delete_warning(context):
     job_data = context.job.data
     chat_id = job_data["chat_id"]
     message_id = job_data["message_id"]
@@ -60,14 +54,12 @@ async def delete_warning(context: ContextTypes.DEFAULT_TYPE):
     except TelegramError:
         pass
 
-async def check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # ... (эта функция остается без изменений) ...
+async def check_subscription(update: Update, context):
     message = update.message
     if not message or not message.from_user:
         return
 
     user = message.from_user
-
     if user.id in ADMIN_IDS or user.id == context.bot.id:
         return
 
@@ -89,17 +81,16 @@ async def check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
 
 def main():
-    # Запускаем Flask-сервер в отдельном потоке
+    # Запускаем Flask и самопинг в отдельных потоках
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
-    
-    # Запускаем функцию самопинга в отдельном потоке
+
     ping_thread = Thread(target=ping_self)
     ping_thread.daemon = True
     ping_thread.start()
-    
-    # Запускаем Telegram-бота
+
+    # Запускаем бота
     application = Application.builder().token(TOKEN).build()
     application.add_handler(
         MessageHandler(
