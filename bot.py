@@ -9,7 +9,7 @@ from telegram.ext import (Application, MessageHandler, filters)
 from telegram.error import TelegramError
 
 # ----- НАСТРОЙКИ, КОТОРЫЕ НАДО ПОМЕНЯТЬ -----
-TOKEN = "AAFiXc-ETav0GsvXm2IqQ54g0h_rsvyIpEQ"
+TOKEN = "8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ"
 CHANNEL_ID = -1002415978372
 ADMIN_IDS = [5271825622]
 CHANNEL_LINK = "https://t.me/ovnsubcheck_bot"   # ← ЗАМЕНИТЕ ЭТУ ССЫЛКУ
