@@ -5,7 +5,8 @@ from threading import Thread
 import requests
 import time
 from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, MessageHandler, 
+filters, ContextTypes
 from telegram.error import TelegramError
 
 # ----- НАСТРОЙКИ, КОТОРЫЕ НАДО ПОМЕНЯТЬ -----
