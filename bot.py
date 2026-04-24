@@ -4,16 +4,16 @@ from flask import Flask
 from threading import Thread
 import requests
 import time
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (Application, MessageHandler, filters)
 from telegram.error import TelegramError
 
-# ----- НАСТРОЙКИ (замените ссылку, если ещё не заменили) -----
+# ----- НАСТРОЙКИ (замените ссылку, если ещё нет) -----
 TOKEN = "8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ"
 CHANNEL_ID = -1002415978372
 ADMIN_IDS = [5271825622]
 CHANNEL_LINK = "https://t.me/AiFinVibe"   # ← замените на реальную ссылку
-# -----------------------------------------------------------
+# ---------------------------------------------------
 
 # --- Служебная часть для Render.com ---
 app = Flask(__name__)
@@ -53,7 +53,6 @@ async def delete_warning(context):
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
         print(f"Предупреждение {message_id} удалено.")
     except TelegramError as e:
-        # Если сообщение уже удалено – не страшно, просто логируем
         print(f"Не удалось удалить сообщение {message_id}: {e}")
 
 async def check_subscription(update: Update, context):
@@ -74,22 +73,24 @@ async def check_subscription(update: Update, context):
         except TelegramError as e:
             print(f"Ошибка удаления сообщения пользователя: {e}")
 
-        # Формируем красивое обращение
+        # Формируем обращение
         if user.username:
             name_part = f"@{user.username}"
         else:
             name_part = user.first_name or "Пользователь"
 
-        reply_text = (
-            f"{name_part}, для отправки сообщений необходимо присоединиться"
-        )
+        # Кнопка «Вступить»
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Вступить", url=CHANNEL_LINK)]
+        ])
 
         reply = await message.chat.send_message(
-            reply_text,
-            disable_web_page_preview=True
+            f"{name_part}, для отправки сообщений необходимо присоединиться",
+            reply_markup=keyboard,
+            disable_web_page_preview=True    # оставляем, чтобы не дублировало предпросмотр
         )
 
-        # Планируем удаление предупреждения ровно через 60 секунд
+        # Удаляем предупреждение через 60 секунд
         context.job_queue.run_once(
             delete_warning,
             when=60,
@@ -97,7 +98,7 @@ async def check_subscription(update: Update, context):
         )
 
 def main():
-    # Запускаем Flask и самопинг в отдельных потоках
+    # Запускаем Flask и самопинг
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
