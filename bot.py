@@ -13,7 +13,7 @@ TOKEN = "8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ"                # 845812
 CHANNEL_ID = -1002415978372             # ID -1002415978372
 ADMIN_IDS = [5271825622]                 # ID  5271825622
 # ★★★★★ ЗАМЕНИТЕ ССЫЛКУ ★★★★★
-CHANNEL_LINK = "https://t.me/yourchannel"
+CHANNEL_LINK = "t.me/ovnsubcheck_bot"
 # -------------------------------------------
 
 # --- Служебная часть для поддержания работоспособности на Render.com ---
