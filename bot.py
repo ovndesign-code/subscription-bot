@@ -8,11 +8,11 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (Application, MessageHandler, filters)
 from telegram.error import TelegramError
 
-# ----- НАСТРОЙКИ (замените ссылку, если ещё нет) -----
+# ----- НАСТРОЙКИ (замените ссылку на реальную) -----
 TOKEN = "8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ"
 CHANNEL_ID = -1002415978372
 ADMIN_IDS = [5271825622]
-CHANNEL_LINK = "https://t.me/AiFinVibe"   # ← замените на реальную ссылку
+CHANNEL_LINK = "https://t.me/AiFinVibe"   # ← замените на настоящую ссылку
 # ---------------------------------------------------
 
 # --- Служебная часть для Render.com ---
@@ -45,12 +45,11 @@ async def is_subscribed(user_id: int, context) -> bool:
     except TelegramError:
         return False
 
-async def delete_warning(context):
-    job_data = context.job.data
-    chat_id = job_data["chat_id"]
-    message_id = job_data["message_id"]
+async def delete_warning_later(bot, chat_id: int, message_id: int):
+    """Ждёт 60 секунд и удаляет предупреждение."""
+    await asyncio.sleep(60)
     try:
-        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
         print(f"Предупреждение {message_id} удалено.")
     except TelegramError as e:
         print(f"Не удалось удалить сообщение {message_id}: {e}")
@@ -90,13 +89,8 @@ async def check_subscription(update: Update, context):
             disable_web_page_preview=True
         )
 
-        # Удаляем предупреждение через 60 секунд
-        # ВАЖНОЕ ИСПРАВЛЕНИЕ: используем context.application.job_queue
-        context.application.job_queue.run_once(
-            delete_warning,
-            when=60,
-            data={"chat_id": reply.chat_id, "message_id": reply.message_id}
-        )
+        # Запускаем фоновую задачу удаления через 60 секунд
+        asyncio.create_task(delete_warning_later(context.bot, reply.chat_id, reply.message_id))
 
 def main():
     # Запускаем Flask и самопинг
