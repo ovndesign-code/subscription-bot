@@ -9,9 +9,9 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from telegram.error import TelegramError
 
 # ----- НАСТРОЙКИ, КОТОРЫЕ НАДО ПОМЕНЯТЬ -----
-TOKEN = "ВАШ_ТОКЕН_БОТА"                # 8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ
-CHANNEL_ID = -1001234567890             # ID -1002415978372
-ADMIN_IDS = [123456789]                 # ID  5271825622
+TOKEN = "8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ"                # 8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ
+CHANNEL_ID = -1002415978372             # ID -1002415978372
+ADMIN_IDS = [5271825622]                 # ID  5271825622
 # ★★★★★ ЗАМЕНИТЕ ССЫЛКУ ★★★★★
 CHANNEL_LINK = "https://t.me/yourchannel"
 # -------------------------------------------
