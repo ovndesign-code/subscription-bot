@@ -8,12 +8,12 @@ from telegram import Update
 from telegram.ext import (Application, MessageHandler, filters)
 from telegram.error import TelegramError
 
-# ----- НАСТРОЙКИ, КОТОРЫЕ НАДО ПОМЕНЯТЬ -----
-TOKEN = "8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ"
+# ----- НАСТРОЙКИ (замените ссылку, если ещё не заменили) -----
+TOKEN = "8458125587:AAFiXc-ETav0GsvXm2IqQ54g0h_rsvyIpEQ"
 CHANNEL_ID = -1002415978372
 ADMIN_IDS = [5271825622]
-CHANNEL_LINK = "https://t.me/AiFinVibe"   # ← ЗАМЕНИТЕ ЭТУ ССЫЛКУ
-# -------------------------------------------
+CHANNEL_LINK = "https://t.me/AiFinVibe"   # ← замените на реальную ссылку
+# -----------------------------------------------------------
 
 # --- Служебная часть для Render.com ---
 app = Flask(__name__)
@@ -51,8 +51,10 @@ async def delete_warning(context):
     message_id = job_data["message_id"]
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except TelegramError:
-        pass
+        print(f"Предупреждение {message_id} удалено.")
+    except TelegramError as e:
+        # Если сообщение уже удалено – не страшно, просто логируем
+        print(f"Не удалось удалить сообщение {message_id}: {e}")
 
 async def check_subscription(update: Update, context):
     message = update.message
@@ -60,20 +62,34 @@ async def check_subscription(update: Update, context):
         return
 
     user = message.from_user
+    # Админы и сам бот пропускаются
     if user.id in ADMIN_IDS or user.id == context.bot.id:
         return
 
+    # Проверяем подписку
     if not await is_subscribed(user.id, context):
+        # Удаляем сообщение пользователя
         try:
             await message.delete()
-        except TelegramError:
-            pass
+        except TelegramError as e:
+            print(f"Ошибка удаления сообщения пользователя: {e}")
+
+        # Формируем красивое обращение
+        if user.username:
+            name_part = f"@{user.username}"
+        else:
+            name_part = user.first_name or "Пользователь"
+
+        reply_text = (
+            f"{name_part}, для отправки сообщений необходимо присоединиться"
+        )
 
         reply = await message.chat.send_message(
-            f"@{user.username or 'Пользователь'}, чтобы писать в чат, подпишитесь на канал: {CHANNEL_LINK}",
+            reply_text,
             disable_web_page_preview=True
         )
 
+        # Планируем удаление предупреждения ровно через 60 секунд
         context.job_queue.run_once(
             delete_warning,
             when=60,
