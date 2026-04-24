@@ -44,15 +44,16 @@ async def is_subscribed(user_id: int, context) -> bool:
         return member.status not in ["left", "kicked"]
     except TelegramError:
         return False
-        
+
 async def delete_warning(context):
     job_data = context.job.data
     chat_id = job_data["chat_id"]
     message_id = job_data["message_id"]
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except Exception as e:
-        print(f"ОШИБКА при удалении предупреждения: {e}")
+        print(f"Предупреждение {message_id} удалено.")
+    except TelegramError as e:
+        print(f"Не удалось удалить сообщение {message_id}: {e}")
 
 async def check_subscription(update: Update, context):
     message = update.message
@@ -86,11 +87,12 @@ async def check_subscription(update: Update, context):
         reply = await message.chat.send_message(
             f"{name_part}, для отправки сообщений необходимо присоединиться",
             reply_markup=keyboard,
-            disable_web_page_preview=True    # оставляем, чтобы не дублировало предпросмотр
+            disable_web_page_preview=True
         )
 
         # Удаляем предупреждение через 60 секунд
-        context.job_queue.run_once(
+        # ВАЖНОЕ ИСПРАВЛЕНИЕ: используем context.application.job_queue
+        context.application.job_queue.run_once(
             delete_warning,
             when=60,
             data={"chat_id": reply.chat_id, "message_id": reply.message_id}
