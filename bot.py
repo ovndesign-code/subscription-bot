@@ -44,16 +44,15 @@ async def is_subscribed(user_id: int, context) -> bool:
         return member.status not in ["left", "kicked"]
     except TelegramError:
         return False
-
+        
 async def delete_warning(context):
     job_data = context.job.data
     chat_id = job_data["chat_id"]
     message_id = job_data["message_id"]
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-        print(f"Предупреждение {message_id} удалено.")
-    except TelegramError as e:
-        print(f"Не удалось удалить сообщение {message_id}: {e}")
+    except Exception as e:
+        print(f"ОШИБКА при удалении предупреждения: {e}")
 
 async def check_subscription(update: Update, context):
     message = update.message
