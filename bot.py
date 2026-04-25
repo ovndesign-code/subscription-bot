@@ -667,10 +667,17 @@ async def set_end(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return MENU
 
 # --- Основная функция ---
+# --- Новая асинхронная инициализация планировщика ---
+async def post_init(application: Application):
+    scheduler.start()
+    restore_jobs(application)
+
+# --- Основная функция ---
 def main():
     init_db()
     cleanup_old_logs()
 
+    # Потоки для Flask и самопинга
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
@@ -679,17 +686,15 @@ def main():
     ping_thread.daemon = True
     ping_thread.start()
 
-    application = Application.builder().token(TOKEN).build()
-
-    restore_jobs(application)
-    scheduler.start()
+    # Создаём приложение с хуком инициализации
+    application = Application.builder().token(TOKEN).post_init(post_init).build()
 
     # Групповые сообщения
     application.add_handler(
         MessageHandler(filters.ALL & filters.ChatType.GROUPS & ~filters.COMMAND, check_subscription)
     )
 
-    # Команды управления
+    # Команды управления VIP и стоп-словами
     application.add_handler(CommandHandler("vip_add", vip_add))
     application.add_handler(CommandHandler("vip_remove", vip_remove))
     application.add_handler(CommandHandler("vip_list", vip_list))
