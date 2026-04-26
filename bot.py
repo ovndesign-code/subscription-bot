@@ -61,10 +61,13 @@ def init_db():
             active INTEGER DEFAULT 1
         )
     """)
-    # VIP-пользователи
+    # VIP-пользователи (пересоздаём)
+    c.execute("DROP TABLE IF EXISTS vip_users")
     c.execute("""
-        CREATE TABLE IF NOT EXISTS vip_users (
-            user_id INTEGER PRIMARY KEY
+        CREATE TABLE vip_users (
+            user_id INTEGER NOT NULL,
+            chat_id INTEGER,
+            PRIMARY KEY (user_id, chat_id)
         )
     """)
     # Стоп-слова
@@ -85,36 +88,43 @@ def init_db():
     conn.commit()
     conn.close()
 
-def is_vip(user_id):
+# Функции VIP (переписаны)
+def is_vip(user_id, chat_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT 1 FROM vip_users WHERE user_id=?", (user_id,))
+    c.execute("SELECT 1 FROM vip_users WHERE user_id=? AND (chat_id IS NULL OR chat_id=?)",
+              (user_id, chat_id))
     res = c.fetchone()
     conn.close()
     return res is not None
 
-def add_vip(user_id):
+def add_vip(user_id, chat_id=None):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO vip_users VALUES (?)", (user_id,))
+    c.execute("INSERT OR IGNORE INTO vip_users (user_id, chat_id) VALUES (?, ?)",
+              (user_id, chat_id))
     conn.commit()
     conn.close()
 
-def remove_vip(user_id):
+def remove_vip(user_id, chat_id=None):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("DELETE FROM vip_users WHERE user_id=?", (user_id,))
+    if chat_id is None:
+        c.execute("DELETE FROM vip_users WHERE user_id=?", (user_id,))
+    else:
+        c.execute("DELETE FROM vip_users WHERE user_id=? AND chat_id=?", (user_id, chat_id))
     conn.commit()
     conn.close()
 
 def get_all_vips():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT user_id FROM vip_users")
+    c.execute("SELECT user_id, chat_id FROM vip_users ORDER BY user_id")
     rows = c.fetchall()
     conn.close()
-    return [r[0] for r in rows]
+    return rows
 
+# Остальные функции БД без изменений
 def add_stop_word(word):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -332,12 +342,12 @@ async def check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id in ADMIN_IDS or user_id == context.bot.id:
         return
 
-    # VIP проходят без подписки и без ограничений
-    if is_vip(user_id):
+    # VIP (глобальный или в этом чате) проходят без подписки и ограничений
+    if is_vip(user_id, chat_id):
         log_message(user_id, chat_id)
         return
 
-    # Проверка подписки на канал (единственное публичное предупреждение)
+    # Проверка подписки на канал
     if not await is_subscribed(user_id, context):
         try:
             await message.delete()
@@ -353,26 +363,20 @@ async def check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE)
         asyncio.create_task(delete_warning_later(context.bot, reply.chat_id, reply.message_id))
         return
 
-    # Остальные проверки – только удаление, без уведомлений
+    # Остальные проверки – только удаление
     text = message.text or message.caption or ""
     violations = False
 
-    # Пересылка
     if message.forward_from or message.forward_from_chat:
         violations = True
-    # Ссылки
-    elif message.entities:
-        if any(e.type in ("url", "text_link") for e in message.entities):
-            violations = True
+    elif message.entities and any(e.type in ("url", "text_link") for e in message.entities):
+        violations = True
     elif re.search(r"https?://", text):
         violations = True
-    # Капс
     elif is_caps(text):
         violations = True
-    # Стоп-слова
     elif contains_stop_words(text):
         violations = True
-    # Лимит
     elif count_user_messages_last_24h(user_id, chat_id) >= 2:
         violations = True
 
@@ -383,7 +387,6 @@ async def check_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE)
             pass
         return
 
-    # Всё хорошо – логируем сообщение
     log_message(user_id, chat_id)
 
 # --- Команды управления VIP и стоп-словами (только админ) ---
@@ -392,35 +395,70 @@ async def vip_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     args = context.args
     if not args:
-        await update.message.reply_text("Используйте: /vip_add <user_id>")
+        await update.message.reply_text("Используйте: /vip_add <user_id> [chat_id]")
         return
     try:
         uid = int(args[0])
-        add_vip(uid)
-        await update.message.reply_text(f"Пользователь {uid} добавлен в VIP.")
     except ValueError:
-        await update.message.reply_text("Неверный ID.")
+        await update.message.reply_text("Неверный user_id.")
+        return
+    chat_id = None
+    if len(args) >= 2:
+        try:
+            chat_id = int(args[1])
+        except ValueError:
+            await update.message.reply_text("Неверный chat_id.")
+            return
+    add_vip(uid, chat_id)
+    where = "во все чаты" if chat_id is None else f"в чате {chat_id}"
+    await update.message.reply_text(f"Пользователь {uid} добавлен в VIP ({where}).")
 
 async def vip_remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMIN_IDS:
         return
     args = context.args
     if not args:
-        await update.message.reply_text("Используйте: /vip_remove <user_id>")
+        await update.message.reply_text("Используйте: /vip_remove <user_id> [chat_id]")
         return
     try:
         uid = int(args[0])
-        remove_vip(uid)
-        await update.message.reply_text(f"Пользователь {uid} удалён из VIP.")
     except ValueError:
-        await update.message.reply_text("Неверный ID.")
+        await update.message.reply_text("Неверный user_id.")
+        return
+    chat_id = None
+    if len(args) >= 2:
+        try:
+            chat_id = int(args[1])
+        except ValueError:
+            await update.message.reply_text("Неверный chat_id.")
+            return
+    remove_vip(uid, chat_id)
+    if chat_id is None:
+        await update.message.reply_text(f"Все VIP-доступы пользователя {uid} удалены.")
+    else:
+        await update.message.reply_text(f"VIP-доступ пользователя {uid} в чате {chat_id} удалён.")
 
 async def vip_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMIN_IDS:
         return
-    vips = get_all_vips()
-    if vips:
-        text = "VIP-пользователи:\n" + "\n".join(str(uid) for uid in vips)
+    rows = get_all_vips()
+    if not rows:
+        await update.message.reply_text("Список VIP пуст.")
+        return
+    globals_vip = [str(r[0]) for r in rows if r[1] is None]
+    locals_dict = {}
+    for r in rows:
+        if r[1] is not None:
+            locals_dict.setdefault(r[1], []).append(str(r[0]))
+    text = ""
+    if globals_vip:
+        text += "🌍 Глобальные VIP:\n" + "\n".join(globals_vip) + "\n\n"
+    for chat_id, users in locals_dict.items():
+        # Попробуем найти название чата
+        chat_name = next((k for k, v in TARGET_CHATS.items() if v == chat_id), str(chat_id))
+        text += f"📌 {chat_name}:\n" + "\n".join(users) + "\n\n"
+    if text:
+        text = text.strip()
     else:
         text = "Список VIP пуст."
     await update.message.reply_text(text)
@@ -579,7 +617,6 @@ async def preview_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_state.pop(uid, None)
         await query.edit_message_text("Создание поста отменено.", reply_markup=main_keyboard())
         return MENU
-    # выбор чатов
     keyboard = [[InlineKeyboardButton(name, callback_data=f"chat_{chat_id}")] for name, chat_id in TARGET_CHATS.items()]
     keyboard.append([InlineKeyboardButton("✅ Готово", callback_data="chats_done")])
     await query.edit_message_text("Выберите чаты (можно несколько):", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -666,7 +703,6 @@ async def set_end(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_state.pop(uid, None)
     return MENU
 
-# --- Основная функция ---
 # --- Новая асинхронная инициализация планировщика ---
 async def post_init(application: Application):
     scheduler.start()
@@ -677,7 +713,6 @@ def main():
     init_db()
     cleanup_old_logs()
 
-    # Потоки для Flask и самопинга
     flask_thread = Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
@@ -686,7 +721,6 @@ def main():
     ping_thread.daemon = True
     ping_thread.start()
 
-    # Создаём приложение с хуком инициализации
     application = Application.builder().token(TOKEN).post_init(post_init).build()
 
     # Групповые сообщения
