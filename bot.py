@@ -22,7 +22,7 @@ from telegram.error import TelegramError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # ----- НАСТРОЙКИ (замените ссылку) -----
-TOKEN = "8458125587:AAFiXc-ETav0GsvXm2IqQ54gOh_rsvyIpEQ"
+TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = -1002415978372
 ADMIN_IDS = [5271825622]
 CHANNEL_LINK = "https://t.me/AiFinVibe"   # ← ЗАМЕНИТЕ
