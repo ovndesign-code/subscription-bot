@@ -15,7 +15,7 @@ from telegram.error import TelegramError
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = -1002415978372
 ADMIN_IDS = [5271825622]                  # ваш Telegram ID
-CHANNEL_LINK = "https://t.me/yourchannel" # ← замените на реальную ссылку
+CHANNEL_LINK = "https://t.me/AiFinVibe" # ← замените на реальную ссылку
 # ---------------------
 
 # --- База данных ---
